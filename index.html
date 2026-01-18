@@ -62,6 +62,27 @@
             background: #ccc;
             cursor: not-allowed;
         }
+        .nav-btn {
+            padding: 8px 12px;
+            background: #666;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .nav-btn:hover {
+            background: #555;
+        }
+        .nav-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .time-nav {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
 
         /* Undecided Area */
         .undecided-area {
@@ -274,7 +295,11 @@
     <!-- Time Period Selector -->
     <div class="time-selector">
         <label for="time-period">Time Period:</label>
-        <select id="time-period"></select>
+        <div class="time-nav">
+            <button class="nav-btn" id="prev-period-btn">&lt;</button>
+            <select id="time-period"></select>
+            <button class="nav-btn" id="next-period-btn">&gt;</button>
+        </div>
         <button class="copy-prev-btn" id="copy-prev-btn">Copy from Previous Period</button>
     </div>
 
@@ -387,6 +412,9 @@
                 }
                 select.appendChild(option);
             }
+            // Enable/disable navigation buttons
+            document.getElementById('prev-period-btn').disabled = state.currentTimePeriod === 1;
+            document.getElementById('next-period-btn').disabled = state.currentTimePeriod === 26;
             // Enable/disable copy button based on current period
             const copyBtn = document.getElementById('copy-prev-btn');
             copyBtn.disabled = state.currentTimePeriod === 1;
@@ -646,6 +674,22 @@
             state.currentTimePeriod = parseInt(e.target.value);
             saveState();
             renderAll();
+        });
+
+        document.getElementById('prev-period-btn').addEventListener('click', () => {
+            if (state.currentTimePeriod > 1) {
+                state.currentTimePeriod--;
+                saveState();
+                renderAll();
+            }
+        });
+
+        document.getElementById('next-period-btn').addEventListener('click', () => {
+            if (state.currentTimePeriod < 26) {
+                state.currentTimePeriod++;
+                saveState();
+                renderAll();
+            }
         });
 
         document.getElementById('copy-prev-btn').addEventListener('click', () => {
