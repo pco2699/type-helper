@@ -296,6 +296,22 @@
             border-radius: 4px;
             resize: vertical;
         }
+        .export-btn {
+            padding: 10px 20px;
+            background: #9C27B0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .export-btn:hover {
+            background: #7B1FA2;
+        }
+        .export-btn.copied {
+            background: #4CAF50;
+        }
 
         /* Drop zone placeholder */
         .drop-placeholder {
@@ -348,6 +364,7 @@
     <div class="output-section">
         <h2>Output (auto-updates)</h2>
         <textarea id="output-area" readonly></textarea>
+        <button class="export-btn" id="export-frozen-btn">Export Frozen to Clipboard</button>
     </div>
 
     <script>
@@ -852,6 +869,54 @@
             saveState();
             renderLocations();
         }
+
+        // ==================== Export Function ====================
+        document.getElementById('export-frozen-btn').addEventListener('click', async () => {
+            const lines = [];
+
+            // Fixed header charts
+            lines.push('(0) 00-act-structure');
+            lines.push('(0) 00-invitation');
+            lines.push('(0) 00-readme');
+            lines.push('(0) 00-references');
+            lines.push('(1) 26-EN-1');
+
+            // Collect all frozen locations from all time periods
+            for (let period = 1; period <= 26; period++) {
+                const periodData = state.timePeriods[period];
+                if (!periodData) continue;
+
+                const frozen = periodData.frozen || {};
+                const placements = periodData.placements || {};
+                const periodStr = period.toString().padStart(2, '0');
+
+                state.locations.forEach(loc => {
+                    if (frozen[loc]) {
+                        const chars = placements[loc] || [];
+                        if (chars.length > 0) {
+                            const sortedChars = [...chars].sort((a, b) => a - b);
+                            lines.push('(0) ' + periodStr + '-' + loc + '-' + sortedChars.join('-'));
+                        }
+                    }
+                });
+            }
+
+            const text = lines.join('\n');
+
+            try {
+                await navigator.clipboard.writeText(text);
+                const btn = document.getElementById('export-frozen-btn');
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = 'Export Frozen to Clipboard';
+                    btn.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy to clipboard');
+            }
+        });
 
         // ==================== Initialize ====================
         renderAll();
