@@ -45,6 +45,23 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
+        .copy-prev-btn {
+            padding: 8px 16px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 15px;
+        }
+        .copy-prev-btn:hover {
+            background: #1976D2;
+        }
+        .copy-prev-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
 
         /* Undecided Area */
         .undecided-area {
@@ -258,6 +275,7 @@
     <div class="time-selector">
         <label for="time-period">Time Period:</label>
         <select id="time-period"></select>
+        <button class="copy-prev-btn" id="copy-prev-btn">Copy from Previous Period</button>
     </div>
 
     <!-- Undecided Area -->
@@ -369,6 +387,9 @@
                 }
                 select.appendChild(option);
             }
+            // Enable/disable copy button based on current period
+            const copyBtn = document.getElementById('copy-prev-btn');
+            copyBtn.disabled = state.currentTimePeriod === 1;
         }
 
         function createCharacterChip(charNum, isFrozen = false) {
@@ -625,6 +646,29 @@
             state.currentTimePeriod = parseInt(e.target.value);
             saveState();
             renderAll();
+        });
+
+        document.getElementById('copy-prev-btn').addEventListener('click', () => {
+            if (state.currentTimePeriod === 1) return;
+
+            const prevPeriod = state.currentTimePeriod - 1;
+            const prevData = getTimePeriodData(prevPeriod);
+            const currentData = getTimePeriodData(state.currentTimePeriod);
+
+            // Copy placements from previous period (deep copy)
+            currentData.placements = JSON.parse(JSON.stringify(prevData.placements));
+
+            // Ensure all current locations exist
+            state.locations.forEach(loc => {
+                if (!currentData.placements[loc]) {
+                    currentData.placements[loc] = [];
+                }
+            });
+
+            saveState();
+            renderUndecidedArea();
+            renderLocations();
+            renderOutput();
         });
 
         document.getElementById('add-location-btn').addEventListener('click', () => {
