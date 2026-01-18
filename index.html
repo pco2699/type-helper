@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type Help Puzzle Solver</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        h2 {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 15px 0 10px;
+            color: #555;
+        }
+
+        /* Time Period Selector */
+        .time-selector {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .time-selector label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .time-selector select {
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* Undecided Area */
+        .undecided-area {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            min-height: 80px;
+        }
+        .undecided-area h3 {
+            font-size: 14px;
+            color: #666;
+            margin: 0 0 10px;
+        }
+
+        /* Location Box Styles */
+        .locations-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .add-location-btn {
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .add-location-btn:hover {
+            background: #45a049;
+        }
+        .locations-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .location-box {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            min-width: 150px;
+            min-height: 100px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .location-box.frozen {
+            border-color: #2196F3;
+            background: #f0f7ff;
+        }
+        .location-box.drag-over {
+            border-color: #4CAF50;
+            background: #f0fff0;
+        }
+        .location-box.frozen.drag-over {
+            border-color: #f44336;
+            background: #fff0f0;
+        }
+        .location-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .location-code {
+            font-weight: bold;
+            font-size: 18px;
+            font-family: monospace;
+        }
+        .location-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .location-actions button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        .location-actions button:hover {
+            background: #eee;
+        }
+        .freeze-btn {
+            font-size: 18px !important;
+        }
+        .delete-btn {
+            color: #f44336;
+        }
+        .delete-btn:disabled {
+            color: #ccc;
+            cursor: not-allowed;
+        }
+        .characters-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            min-height: 30px;
+        }
+
+        /* Character Chip Styles */
+        .character-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            background: #e3f2fd;
+            border: 1px solid #90caf9;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s;
+        }
+        .character-chip:hover {
+            background: #bbdefb;
+        }
+        .character-chip.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+        .character-chip.frozen {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .character-chip .char-num {
+            font-weight: bold;
+            margin-right: 3px;
+        }
+        .character-chip .char-name {
+            color: #555;
+        }
+
+        /* Character Names Section */
+        .character-names {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .names-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .name-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .name-input-group label {
+            font-weight: bold;
+            font-size: 14px;
+            min-width: 25px;
+        }
+        .name-input-group input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .name-input-group input:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+
+        /* Output Section */
+        .output-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .output-section h2 {
+            margin-top: 0;
+        }
+        #output-area {
+            width: 100%;
+            height: 120px;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+
+        /* Drop zone placeholder */
+        .drop-placeholder {
+            color: #999;
+            font-size: 12px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Type Help Puzzle Solver</h1>
+
+    <!-- Time Period Selector -->
+    <div class="time-selector">
+        <label for="time-period">Time Period:</label>
+        <select id="time-period"></select>
+    </div>
+
+    <!-- Undecided Area -->
+    <div class="undecided-area" id="undecided-area" data-location="??">
+        <h3>?? (Undecided)</h3>
+        <div class="characters-container" id="undecided-characters"></div>
+    </div>
+
+    <!-- Locations -->
+    <div class="locations-header">
+        <h2>Locations</h2>
+        <button class="add-location-btn" id="add-location-btn">+ Add Location</button>
+    </div>
+    <div class="locations-grid" id="locations-grid"></div>
+
+    <!-- Character Names -->
+    <div class="character-names">
+        <h2>Character Names (click to edit)</h2>
+        <div class="names-grid" id="names-grid"></div>
+    </div>
+
+    <!-- Output -->
+    <div class="output-section">
+        <h2>Output (auto-updates)</h2>
+        <textarea id="output-area" readonly></textarea>
+    </div>
+
+    <script>
+        // ==================== State Management ====================
+        const STORAGE_KEY = 'typeHelpPuzzleSolver';
+
+        const defaultState = {
+            currentTimePeriod: 1,
+            locations: ["KI", "EN", "QU"],
+            characterNames: {},
+            timePeriods: {}
+        };
+
+        let state = loadState();
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Failed to load state:', e);
+            }
+            return JSON.parse(JSON.stringify(defaultState));
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error('Failed to save state:', e);
+            }
+        }
+
+        function getTimePeriodData(period) {
+            if (!state.timePeriods[period]) {
+                // Initialize new time period
+                if (period === 1) {
+                    // Period 1: all characters start in undecided
+                    state.timePeriods[period] = {
+                        placements: {
+                            "??": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                        },
+                        frozen: {}
+                    };
+                } else {
+                    // Other periods: inherit from previous
+                    const prevData = getTimePeriodData(period - 1);
+                    state.timePeriods[period] = {
+                        placements: JSON.parse(JSON.stringify(prevData.placements)),
+                        frozen: {} // Freeze states are NOT inherited
+                    };
+                }
+                // Initialize all locations with empty arrays if not present
+                state.locations.forEach(loc => {
+                    if (!state.timePeriods[period].placements[loc]) {
+                        state.timePeriods[period].placements[loc] = [];
+                    }
+                });
+                saveState();
+            }
+            return state.timePeriods[period];
+        }
+
+        function getCurrentPlacements() {
+            return getTimePeriodData(state.currentTimePeriod).placements;
+        }
+
+        function getCurrentFrozen() {
+            return getTimePeriodData(state.currentTimePeriod).frozen;
+        }
+
+        // ==================== Render Functions ====================
+        function renderTimePeriodSelector() {
+            const select = document.getElementById('time-period');
+            select.innerHTML = '';
+            for (let i = 1; i <= 26; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i.toString().padStart(2, '0');
+                if (i === state.currentTimePeriod) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            }
+        }
+
+        function createCharacterChip(charNum, isFrozen = false) {
+            const chip = document.createElement('div');
+            chip.className = 'character-chip' + (isFrozen ? ' frozen' : '');
+            chip.draggable = !isFrozen;
+            chip.dataset.character = charNum;
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'char-num';
+            numSpan.textContent = charNum + ':';
+            chip.appendChild(numSpan);
+
+            const name = state.characterNames[charNum] || '';
+            if (name) {
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'char-name';
+                nameSpan.textContent = name;
+                chip.appendChild(nameSpan);
+            }
+
+            // Drag events
+            chip.addEventListener('dragstart', handleDragStart);
+            chip.addEventListener('dragend', handleDragEnd);
+
+            return chip;
+        }
+
+        function renderUndecidedArea() {
+            const container = document.getElementById('undecided-characters');
+            const placements = getCurrentPlacements();
+            const chars = placements['??'] || [];
+
+            container.innerHTML = '';
+            if (chars.length === 0) {
+                container.innerHTML = '<span class="drop-placeholder">Drop characters here</span>';
+            } else {
+                chars.sort((a, b) => a - b).forEach(charNum => {
+                    container.appendChild(createCharacterChip(charNum, false));
+                });
+            }
+        }
+
+        function renderLocations() {
+            const grid = document.getElementById('locations-grid');
+            const placements = getCurrentPlacements();
+            const frozen = getCurrentFrozen();
+
+            grid.innerHTML = '';
+
+            state.locations.forEach(loc => {
+                const box = document.createElement('div');
+                box.className = 'location-box' + (frozen[loc] ? ' frozen' : '');
+                box.dataset.location = loc;
+
+                // Header
+                const header = document.createElement('div');
+                header.className = 'location-header';
+
+                const code = document.createElement('span');
+                code.className = 'location-code';
+                code.textContent = loc;
+                header.appendChild(code);
+
+                const actions = document.createElement('div');
+                actions.className = 'location-actions';
+
+                // Freeze button
+                const freezeBtn = document.createElement('button');
+                freezeBtn.className = 'freeze-btn';
+                freezeBtn.textContent = frozen[loc] ? '\u{1F512}' : '\u{1F513}';
+                freezeBtn.title = frozen[loc] ? 'Unfreeze' : 'Freeze';
+                freezeBtn.addEventListener('click', () => toggleFreeze(loc));
+                actions.appendChild(freezeBtn);
+
+                // Delete button
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.textContent = '\u00D7';
+                deleteBtn.title = 'Delete location';
+                const chars = placements[loc] || [];
+                deleteBtn.disabled = frozen[loc] || chars.length > 0;
+                deleteBtn.addEventListener('click', () => deleteLocation(loc));
+                actions.appendChild(deleteBtn);
+
+                header.appendChild(actions);
+                box.appendChild(header);
+
+                // Characters container
+                const charsContainer = document.createElement('div');
+                charsContainer.className = 'characters-container';
+
+                if (chars.length === 0) {
+                    charsContainer.innerHTML = '<span class="drop-placeholder">Drop characters here</span>';
+                } else {
+                    chars.sort((a, b) => a - b).forEach(charNum => {
+                        charsContainer.appendChild(createCharacterChip(charNum, frozen[loc]));
+                    });
+                }
+                box.appendChild(charsContainer);
+
+                // Drop zone events
+                box.addEventListener('dragover', handleDragOver);
+                box.addEventListener('dragleave', handleDragLeave);
+                box.addEventListener('drop', handleDrop);
+
+                grid.appendChild(box);
+            });
+        }
+
+        function renderCharacterNames() {
+            const grid = document.getElementById('names-grid');
+            grid.innerHTML = '';
+
+            for (let i = 1; i <= 11; i++) {
+                const group = document.createElement('div');
+                group.className = 'name-input-group';
+
+                const label = document.createElement('label');
+                label.textContent = i + ':';
+                label.htmlFor = 'name-' + i;
+                group.appendChild(label);
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = 'name-' + i;
+                input.value = state.characterNames[i] || '';
+                input.placeholder = 'Name';
+                input.addEventListener('input', (e) => {
+                    state.characterNames[i] = e.target.value;
+                    saveState();
+                    renderUndecidedArea();
+                    renderLocations();
+                });
+                group.appendChild(input);
+
+                grid.appendChild(group);
+            }
+        }
+
+        function renderOutput() {
+            const placements = getCurrentPlacements();
+            const period = state.currentTimePeriod.toString().padStart(2, '0');
+            const lines = [];
+
+            state.locations.forEach(loc => {
+                const chars = placements[loc] || [];
+                if (chars.length > 0) {
+                    const sortedChars = [...chars].sort((a, b) => a - b);
+                    lines.push(period + '-' + loc + '-' + sortedChars.join('-'));
+                }
+            });
+
+            document.getElementById('output-area').value = lines.join('\n');
+        }
+
+        function renderAll() {
+            renderTimePeriodSelector();
+            renderUndecidedArea();
+            renderLocations();
+            renderCharacterNames();
+            renderOutput();
+        }
+
+        // ==================== Drag and Drop ====================
+        let draggedChar = null;
+        let sourceLocation = null;
+
+        function handleDragStart(e) {
+            draggedChar = parseInt(e.target.dataset.character);
+            sourceLocation = e.target.closest('[data-location]').dataset.location;
+            e.target.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', draggedChar);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            document.querySelectorAll('.location-box, .undecided-area').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+            draggedChar = null;
+            sourceLocation = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            const target = e.currentTarget;
+            const targetLoc = target.dataset.location;
+            const frozen = getCurrentFrozen();
+
+            if (targetLoc !== '??' && frozen[targetLoc]) {
+                e.dataTransfer.dropEffect = 'none';
+            } else {
+                e.dataTransfer.dropEffect = 'move';
+            }
+            target.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+
+            const targetLoc = e.currentTarget.dataset.location;
+            const frozen = getCurrentFrozen();
+
+            // Cannot drop on frozen location (except ??)
+            if (targetLoc !== '??' && frozen[targetLoc]) {
+                return;
+            }
+
+            // Cannot drag from frozen location
+            if (sourceLocation !== '??' && frozen[sourceLocation]) {
+                return;
+            }
+
+            if (draggedChar === null || sourceLocation === targetLoc) {
+                return;
+            }
+
+            const placements = getCurrentPlacements();
+
+            // Remove from source
+            const sourceIndex = placements[sourceLocation].indexOf(draggedChar);
+            if (sourceIndex > -1) {
+                placements[sourceLocation].splice(sourceIndex, 1);
+            }
+
+            // Add to target
+            if (!placements[targetLoc]) {
+                placements[targetLoc] = [];
+            }
+            if (!placements[targetLoc].includes(draggedChar)) {
+                placements[targetLoc].push(draggedChar);
+            }
+
+            saveState();
+            renderUndecidedArea();
+            renderLocations();
+            renderOutput();
+        }
+
+        // Setup undecided area as drop zone
+        document.getElementById('undecided-area').addEventListener('dragover', handleDragOver);
+        document.getElementById('undecided-area').addEventListener('dragleave', handleDragLeave);
+        document.getElementById('undecided-area').addEventListener('drop', handleDrop);
+
+        // ==================== Event Handlers ====================
+        document.getElementById('time-period').addEventListener('change', (e) => {
+            state.currentTimePeriod = parseInt(e.target.value);
+            saveState();
+            renderAll();
+        });
+
+        document.getElementById('add-location-btn').addEventListener('click', () => {
+            const code = prompt('Enter 2-letter location code (e.g., KI, EN, QU):');
+            if (code) {
+                const upperCode = code.toUpperCase().trim().slice(0, 2);
+                if (upperCode.length !== 2) {
+                    alert('Location code must be exactly 2 letters.');
+                    return;
+                }
+                if (state.locations.includes(upperCode)) {
+                    alert('Location already exists.');
+                    return;
+                }
+                state.locations.push(upperCode);
+                // Initialize for all existing time periods
+                Object.keys(state.timePeriods).forEach(period => {
+                    if (!state.timePeriods[period].placements[upperCode]) {
+                        state.timePeriods[period].placements[upperCode] = [];
+                    }
+                });
+                saveState();
+                renderLocations();
+            }
+        });
+
+        function toggleFreeze(loc) {
+            const frozen = getCurrentFrozen();
+            frozen[loc] = !frozen[loc];
+            saveState();
+            renderLocations();
+        }
+
+        function deleteLocation(loc) {
+            const placements = getCurrentPlacements();
+            const frozen = getCurrentFrozen();
+
+            if (frozen[loc]) {
+                alert('Cannot delete a frozen location.');
+                return;
+            }
+
+            const chars = placements[loc] || [];
+            if (chars.length > 0) {
+                alert('Cannot delete a location with characters. Move them first.');
+                return;
+            }
+
+            if (!confirm('Delete location "' + loc + '"?')) {
+                return;
+            }
+
+            // Remove from global locations
+            const idx = state.locations.indexOf(loc);
+            if (idx > -1) {
+                state.locations.splice(idx, 1);
+            }
+
+            // Remove from all time periods
+            Object.keys(state.timePeriods).forEach(period => {
+                delete state.timePeriods[period].placements[loc];
+                delete state.timePeriods[period].frozen[loc];
+            });
+
+            saveState();
+            renderLocations();
+        }
+
+        // ==================== Initialize ====================
+        renderAll();
+    </script>
+</body>
+</html>
