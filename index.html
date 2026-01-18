@@ -162,6 +162,13 @@
             border-color: #f44336;
             background: #fff0f0;
         }
+        .location-box.copied {
+            border-color: #4CAF50;
+            background: #e8f5e9;
+        }
+        .location-box {
+            cursor: pointer;
+        }
         .location-header {
             display: flex;
             justify-content: space-between;
@@ -192,13 +199,6 @@
         }
         .freeze-btn {
             font-size: 18px !important;
-        }
-        .delete-btn {
-            color: #f44336;
-        }
-        .delete-btn:disabled {
-            color: #ccc;
-            cursor: not-allowed;
         }
         .characters-container {
             display: flex;
@@ -286,16 +286,6 @@
         .output-section h2 {
             margin-top: 0;
         }
-        #output-area {
-            width: 100%;
-            height: 120px;
-            font-family: monospace;
-            font-size: 14px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            resize: vertical;
-        }
         .export-btn {
             padding: 10px 20px;
             background: #9C27B0;
@@ -360,10 +350,8 @@
         <div class="names-grid" id="names-grid"></div>
     </div>
 
-    <!-- Output -->
+    <!-- Export -->
     <div class="output-section">
-        <h2>Output (auto-updates)</h2>
-        <textarea id="output-area" readonly></textarea>
         <button class="export-btn" id="export-frozen-btn">Export Frozen to Clipboard</button>
     </div>
 
@@ -562,18 +550,13 @@
                 freezeBtn.className = 'freeze-btn';
                 freezeBtn.textContent = frozen[loc] ? '\u{1F512}' : '\u{1F513}';
                 freezeBtn.title = frozen[loc] ? 'Unfreeze' : 'Freeze';
-                freezeBtn.addEventListener('click', () => toggleFreeze(loc));
+                freezeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleFreeze(loc);
+                });
                 actions.appendChild(freezeBtn);
 
-                // Delete button
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.textContent = '\u00D7';
-                deleteBtn.title = 'Delete location';
                 const chars = placements[loc] || [];
-                deleteBtn.disabled = frozen[loc] || chars.length > 0;
-                deleteBtn.addEventListener('click', () => deleteLocation(loc));
-                actions.appendChild(deleteBtn);
 
                 header.appendChild(actions);
                 box.appendChild(header);
@@ -595,6 +578,27 @@
                 box.addEventListener('dragover', handleDragOver);
                 box.addEventListener('dragleave', handleDragLeave);
                 box.addEventListener('drop', handleDrop);
+
+                // Click to copy
+                box.addEventListener('click', async (e) => {
+                    // Don't copy if clicking on buttons or dragging
+                    if (e.target.closest('button') || e.target.closest('.character-chip')) return;
+
+                    const chars = placements[loc] || [];
+                    if (chars.length === 0) return;
+
+                    const period = state.currentTimePeriod.toString().padStart(2, '0');
+                    const sortedChars = [...chars].sort((a, b) => a - b);
+                    const text = period + '-' + loc + '-' + sortedChars.join('-');
+
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        box.classList.add('copied');
+                        setTimeout(() => box.classList.remove('copied'), 500);
+                    } catch (err) {
+                        console.error('Failed to copy:', err);
+                    }
+                });
 
                 grid.appendChild(box);
             });
@@ -630,29 +634,12 @@
             }
         }
 
-        function renderOutput() {
-            const placements = getCurrentPlacements();
-            const period = state.currentTimePeriod.toString().padStart(2, '0');
-            const lines = [];
-
-            state.locations.forEach(loc => {
-                const chars = placements[loc] || [];
-                if (chars.length > 0) {
-                    const sortedChars = [...chars].sort((a, b) => a - b);
-                    lines.push(period + '-' + loc + '-' + sortedChars.join('-'));
-                }
-            });
-
-            document.getElementById('output-area').value = lines.join('\n');
-        }
-
         function renderAll() {
             renderTimePeriodSelector();
             renderUndecidedArea();
             renderCeasedArea();
             renderLocations();
             renderCharacterNames();
-            renderOutput();
         }
 
         // ==================== Drag and Drop ====================
@@ -736,11 +723,33 @@
                 placements[targetLoc].push(draggedChar);
             }
 
+            // If moving to Ceased (XX), update all subsequent time periods
+            if (targetLoc === 'XX') {
+                for (let p = state.currentTimePeriod + 1; p <= 26; p++) {
+                    if (state.timePeriods[p]) {
+                        const periodPlacements = state.timePeriods[p].placements;
+                        // Remove from all locations in that period
+                        Object.keys(periodPlacements).forEach(loc => {
+                            const idx = periodPlacements[loc].indexOf(draggedChar);
+                            if (idx > -1) {
+                                periodPlacements[loc].splice(idx, 1);
+                            }
+                        });
+                        // Add to XX
+                        if (!periodPlacements['XX']) {
+                            periodPlacements['XX'] = [];
+                        }
+                        if (!periodPlacements['XX'].includes(draggedChar)) {
+                            periodPlacements['XX'].push(draggedChar);
+                        }
+                    }
+                }
+            }
+
             saveState();
             renderUndecidedArea();
             renderCeasedArea();
             renderLocations();
-            renderOutput();
         }
 
         // Setup undecided area as drop zone
@@ -801,7 +810,6 @@
             renderUndecidedArea();
             renderCeasedArea();
             renderLocations();
-            renderOutput();
         });
 
         document.getElementById('add-location-btn').addEventListener('click', () => {
@@ -831,41 +839,6 @@
         function toggleFreeze(loc) {
             const frozen = getCurrentFrozen();
             frozen[loc] = !frozen[loc];
-            saveState();
-            renderLocations();
-        }
-
-        function deleteLocation(loc) {
-            const placements = getCurrentPlacements();
-            const frozen = getCurrentFrozen();
-
-            if (frozen[loc]) {
-                alert('Cannot delete a frozen location.');
-                return;
-            }
-
-            const chars = placements[loc] || [];
-            if (chars.length > 0) {
-                alert('Cannot delete a location with characters. Move them first.');
-                return;
-            }
-
-            if (!confirm('Delete location "' + loc + '"?')) {
-                return;
-            }
-
-            // Remove from global locations
-            const idx = state.locations.indexOf(loc);
-            if (idx > -1) {
-                state.locations.splice(idx, 1);
-            }
-
-            // Remove from all time periods
-            Object.keys(state.timePeriods).forEach(period => {
-                delete state.timePeriods[period].placements[loc];
-                delete state.timePeriods[period].frozen[loc];
-            });
-
             saveState();
             renderLocations();
         }
