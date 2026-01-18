@@ -84,19 +84,35 @@
             gap: 5px;
         }
 
-        /* Undecided Area */
-        .undecided-area {
+        /* Undecided and Ceased Areas */
+        .special-areas {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .undecided-area, .ceased-area {
             background: white;
             padding: 15px;
             border-radius: 8px;
-            margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             min-height: 80px;
+            flex: 1;
         }
-        .undecided-area h3 {
+        .undecided-area h3, .ceased-area h3 {
             font-size: 14px;
             color: #666;
             margin: 0 0 10px;
+        }
+        .ceased-area {
+            border: 2px solid #9e9e9e;
+            background: #fafafa;
+        }
+        .ceased-area h3 {
+            color: #666;
+        }
+        .ceased-area.drag-over {
+            border-color: #4CAF50;
+            background: #f0fff0;
         }
 
         /* Location Box Styles */
@@ -303,10 +319,16 @@
         <button class="copy-prev-btn" id="copy-prev-btn">Copy from Previous Period</button>
     </div>
 
-    <!-- Undecided Area -->
-    <div class="undecided-area" id="undecided-area" data-location="??">
-        <h3>?? (Undecided)</h3>
-        <div class="characters-container" id="undecided-characters"></div>
+    <!-- Undecided and Ceased Areas -->
+    <div class="special-areas">
+        <div class="undecided-area" id="undecided-area" data-location="??">
+            <h3>?? (Undecided)</h3>
+            <div class="characters-container" id="undecided-characters"></div>
+        </div>
+        <div class="ceased-area" id="ceased-area" data-location="XX">
+            <h3>XX (Ceased)</h3>
+            <div class="characters-container" id="ceased-characters"></div>
+        </div>
     </div>
 
     <!-- Locations -->
@@ -368,7 +390,8 @@
                     // Period 1: all characters start in undecided
                     state.timePeriods[period] = {
                         placements: {
-                            "??": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+                            "??": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+                            "XX": []
                         },
                         frozen: {}
                     };
@@ -386,6 +409,10 @@
                         state.timePeriods[period].placements[loc] = [];
                     }
                 });
+                // Ensure XX exists
+                if (!state.timePeriods[period].placements['XX']) {
+                    state.timePeriods[period].placements['XX'] = [];
+                }
                 saveState();
             }
             return state.timePeriods[period];
@@ -397,6 +424,17 @@
 
         function getCurrentFrozen() {
             return getTimePeriodData(state.currentTimePeriod).frozen;
+        }
+
+        // Check if a character was ceased in a previous period
+        function isCharacterCeased(charNum) {
+            for (let p = 1; p < state.currentTimePeriod; p++) {
+                const periodData = state.timePeriods[p];
+                if (periodData && periodData.placements['XX'] && periodData.placements['XX'].includes(charNum)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         // ==================== Render Functions ====================
@@ -457,6 +495,23 @@
             } else {
                 chars.sort((a, b) => a - b).forEach(charNum => {
                     container.appendChild(createCharacterChip(charNum, false));
+                });
+            }
+        }
+
+        function renderCeasedArea() {
+            const container = document.getElementById('ceased-characters');
+            const placements = getCurrentPlacements();
+            const chars = placements['XX'] || [];
+
+            container.innerHTML = '';
+            if (chars.length === 0) {
+                container.innerHTML = '<span class="drop-placeholder">Drop ceased characters here</span>';
+            } else {
+                chars.sort((a, b) => a - b).forEach(charNum => {
+                    // Character is frozen if they were ceased in a previous period
+                    const isFrozen = isCharacterCeased(charNum);
+                    container.appendChild(createCharacterChip(charNum, isFrozen));
                 });
             }
         }
@@ -577,6 +632,7 @@
         function renderAll() {
             renderTimePeriodSelector();
             renderUndecidedArea();
+            renderCeasedArea();
             renderLocations();
             renderCharacterNames();
             renderOutput();
@@ -628,13 +684,18 @@
             const targetLoc = e.currentTarget.dataset.location;
             const frozen = getCurrentFrozen();
 
-            // Cannot drop on frozen location (except ??)
-            if (targetLoc !== '??' && frozen[targetLoc]) {
+            // Cannot drop on frozen location (except ?? and XX)
+            if (targetLoc !== '??' && targetLoc !== 'XX' && frozen[targetLoc]) {
                 return;
             }
 
             // Cannot drag from frozen location
-            if (sourceLocation !== '??' && frozen[sourceLocation]) {
+            if (sourceLocation !== '??' && sourceLocation !== 'XX' && frozen[sourceLocation]) {
+                return;
+            }
+
+            // Cannot drag ceased characters out of XX
+            if (sourceLocation === 'XX' && isCharacterCeased(draggedChar)) {
                 return;
             }
 
@@ -660,6 +721,7 @@
 
             saveState();
             renderUndecidedArea();
+            renderCeasedArea();
             renderLocations();
             renderOutput();
         }
@@ -668,6 +730,11 @@
         document.getElementById('undecided-area').addEventListener('dragover', handleDragOver);
         document.getElementById('undecided-area').addEventListener('dragleave', handleDragLeave);
         document.getElementById('undecided-area').addEventListener('drop', handleDrop);
+
+        // Setup ceased area as drop zone
+        document.getElementById('ceased-area').addEventListener('dragover', handleDragOver);
+        document.getElementById('ceased-area').addEventListener('dragleave', handleDragLeave);
+        document.getElementById('ceased-area').addEventListener('drop', handleDrop);
 
         // ==================== Event Handlers ====================
         document.getElementById('time-period').addEventListener('change', (e) => {
@@ -708,9 +775,14 @@
                     currentData.placements[loc] = [];
                 }
             });
+            // Ensure XX exists
+            if (!currentData.placements['XX']) {
+                currentData.placements['XX'] = [];
+            }
 
             saveState();
             renderUndecidedArea();
+            renderCeasedArea();
             renderLocations();
             renderOutput();
         });
